@@ -79,7 +79,7 @@ class Woo_Coupons_Public {
 	}
 
 
-	private function getEmailValue($array) {
+	private function getEmail($array) {
 		foreach ($array as $item) {
 			if (isset($item['type']) && $item['type'] === 'email') {
 				return $item['value'];
@@ -153,26 +153,33 @@ class Woo_Coupons_Public {
 
 
 
+	/*
+	*	Generate coupon after form submission
+	*/
 	public function after_wpforms_submission( $fields, $entry, $form_data, $entry_id ) {
 
-		$email = $this->getEmailValue($fields);
+		$email = $this->getEmail($fields);
 		$existing_coupon = $this->get_coupon_by_email($email);
+
 		if($existing_coupon){
-			// print_r($existing_coupon);die;
-			$this->send_coupon_email($existing_coupon);
+			$this->send_coupon_email($existing_coupon->post_title, $email);
 			return;
 		}
 
 		$new_coupon = $this->generate_coupon($email);
+
+		if($new_coupon){
+			$this->send_coupon_email($new_coupon, $email);
+		}
     }
 
 
 
-	private function send_coupon_email($coupon ){
+	private function send_coupon_email($coupon_code, $email){
 		// Your custom code after WPForms submission goes here.
-		$to = 'juanobrach@gmail.com';
+		$to = $email ?? 'services@heromacandles.com';
 		$subject = 'Código de Cupón Exclusivo 😃';
-		$body =  $this->create_email_body( $coupon->post_title );
+		$body =  $this->create_email_body( $coupon_code );
 		$headers = array('Content-Type: text/html; charset=UTF-8');
 		wp_mail( $to, $subject, $body, $headers );
 	}
@@ -218,13 +225,15 @@ class Woo_Coupons_Public {
 		$MAX_COUPON_USES = 50;
 		$discount_type = 'percent'; // Type: fixed_cart, percent, fixed_product, percent_product
 		$coupon = $this->get_coupon_available();
-		$coupon_amount = $coupon['value'];
-		$coupon_id = $coupon['id'];
-
-		if(!$coupon_code){
+		
+		if(!$coupon){
+			// log or handle error here
 			return false;
 		}
-
+		
+		$coupon_amount = $coupon['amount'];
+		$coupon_id = $coupon['id'];
+	
 		$WC_coupon = new WC_Coupon($coupon_id);
 		$emails_registered = $WC_coupon->get_email_restrictions();
 		if(!in_array($form_email, $emails_registered)){
@@ -243,7 +252,7 @@ class Woo_Coupons_Public {
 		$WC_coupon->set_usage_limit_per_user(1); // number of times a specific user can use the coupon
 		$WC_coupon->set_limit_usage_to_x_items(3); // maximum number of individual items this coupon can apply to when using product discounts
 		$WC_coupon->save();
-		return $coupon;
+		return $coupon_id;
 	}
 
 
@@ -264,13 +273,12 @@ class Woo_Coupons_Public {
 		$coupons = get_posts($args);
 		return !empty($coupons) ? $coupons[0] : false;
 	}
-
 	
-
 	public function filter_confirmation_message(  $message, $form_data, $fields, $entry_id ) {
-		$email = $this->getEmailValue($fields);
+		$email = $this->getEmail($fields);
 		$coupon = $this->get_coupon_by_email($email_field);
-		$message = "<h1>Tu cupon es: " . $coupon->post_title . "</h1>";
+		$span_style = 'style="color: #8e4b50; font-weight: bold; border: 1px dotted; padding: 1em; margin-left: 1em; "';
+		$message = "¡Gracias por participar! Aquí está tu cupón de descuento: <span class='$this->plugin_name-coupon-code' $span_style >$coupon->post_title.</span>";
 		return $message;
 	}
 
