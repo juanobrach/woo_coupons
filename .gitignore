@@ -29,3 +29,5 @@ dist/
 /vendor/
 /composer.lock
 /composer.phar
+
+*.zip
